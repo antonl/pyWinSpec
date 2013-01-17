@@ -3,7 +3,9 @@ from ctypes import *
 # Definitions of types
 BYTE = c_ubyte
 WORD = c_ushort
-DWORD = c_ulong
+DWORD = c_uint
+
+# long is 4 bytes in the manual. It is 8 bytes on my machine
 
 # Lengths of arrays used in header
 HDRNAMEMAX = 120
@@ -16,6 +18,8 @@ ROIMAX = 10
 TIMEMAX = 7
 
 class ROIinfo(Structure):
+    _pack_ = 1
+
     _fields_ = [
         ('startx', WORD), 
         ('endx', WORD),
@@ -25,6 +29,8 @@ class ROIinfo(Structure):
         ('groupy', WORD)]
 
 class Calibration(Structure):
+    _pack_ = 1
+
     _fields_ = [
         ('offset', c_double), 
         ('factor', c_double),
@@ -47,6 +53,7 @@ class Calibration(Structure):
         ('expansion', c_char * 87)]
 
 class Header(Structure):
+    _pack_ = 1
 
     # Header fields
     _fields_ = [
@@ -62,6 +69,7 @@ class Header(Structure):
         ('date', c_char * DATEMAX),
         ('VirtualChipFlag', c_short),
         ('Spare_1', c_char * 2), # Unused data
+        ('noscan', c_short),
         ('DetTemperature', c_float),
         ('DetType', c_short),
         ('xdim', WORD),
@@ -77,7 +85,7 @@ class Header(Structure):
         ('ThresholdMaxVal', c_float),
         ('SpecAutoSpectroMode', c_short),
         ('SpecCenterWlNm', c_float),
-        ('SpecGlueFlag', c_float),
+        ('SpecGlueFlag', c_short),
         ('SpecGlueStartWlNm', c_float),
         ('SpecGlueEndWlNm', c_float),
         ('SpecGlueMinOvrlpNm', c_float),
@@ -136,8 +144,8 @@ class Header(Structure):
         ('scramble', c_short),
         ('ContinuousCleansFlag', c_short), 
         ('ExternalTriggerFlag', c_short), 
-        ('lnoscan', c_long), 
-        ('lavgexp', c_long), 
+        ('lnoscan', c_int), # Longs are 4 bytes  
+        ('lavgexp', c_int), # 4 bytes
         ('ReadoutTime', c_float), 
         ('TriggeredModeFlag', c_short), 
         ('Spare_2', c_char * 10), 
@@ -160,7 +168,7 @@ class Header(Structure):
         ('CosmicApplied', c_short), 
         ('CosmicType', c_short),
         ('CosmicThreshold', c_float), 
-        ('NumFrames', c_long),
+        ('NumFrames', c_int),
         ('MaxIntensity', c_float),
         ('MinIntensity', c_float),
         ('ylabel', c_char * LABELMAX),
@@ -181,7 +189,7 @@ class Header(Structure):
         ('blemish', c_char * HDRNAMEMAX),
         ('file_header_ver', c_float),
         ('YT_Info', c_char * 1000),
-        ('WinView_id', c_long),
+        ('WinView_id', c_int),
         ('xcalibration', Calibration),
         ('ycalibration', Calibration),
         ('Istring', c_char * 40),
@@ -202,11 +210,31 @@ class Header(Structure):
         ('AvGain', c_short),
         ('lastvalue', c_short)]
 
+    def __str__(self):
+        return 'Header'
+
     def __repr__(self):
         return 'SPE File\n\t{:d}x{:d} area, {:d} frames\n\tTaken on {:s}'\
                 .format(self.xdim, self.ydim, self.NumFrames, self.date)
 
 if __name__ == '__main__':
-    print Header()
+    import inspect, re, io
 
+    with io.FileIO('02_reference.SPE', mode='r') as f:
+        A = Header()
+        f.readinto(A)
+        
+        for i in [Header, Calibration, ROIinfo]:
+            fields = []
 
+            print '{:20s}[{:4s}]\toffset'.format(str(i), 'size')
+            
+            for name,obj in inspect.getmembers(i):
+                if inspect.isdatadescriptor(obj) and not inspect.ismemberdescriptor(obj) and not inspect.isgetsetdescriptor(obj):
+                    fields.append((name, obj))
+
+            
+            fields.sort(key=lambda x: re.search('(?<=ofs=)([0-9]+)', str(x[1])).group(0), cmp=lambda x,y: cmp(int(x),int(y))); fields
+
+            for name, obj in fields:
+                print '{:20s}[{:3d}]\toff={:4d}'.format(name, obj.size, obj.offset)
