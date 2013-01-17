@@ -1,6 +1,6 @@
 ''' winspec.py - read SPE files created by WinSpec with Princeton Instruments' cameras. '''
 
-import ctypes
+import ctypes, os
 import numpy as np
 
 __all__ = ['SpeFile', 'test_headers']
@@ -83,7 +83,7 @@ class SpeFile(object):
 
         with file(name, mode='rb') as f:
             self.header = Header()
-            self.path = path.realpath(name) 
+            self.path = os.path.realpath(name) 
             self._data = None
 
             # Deprecated method, but FileIO apparently can't be used with numpy
