@@ -210,7 +210,3 @@ class Header(Structure):
         ('AvGain', c_short),
         ('lastvalue', c_short)]
 
-    def __repr__(self):
-        return 'SPE File\n\t{:d}x{:d} area, {:d} frames\n\tTaken on {:s}'\
-                .format(self.xdim, self.ydim, self.NumFrames, self.date)
-
