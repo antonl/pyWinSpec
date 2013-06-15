@@ -81,7 +81,7 @@ class SpeFile(object):
     def __init__(self, name):
         ''' Open file `name` to read the header.'''
 
-        with file(name, mode='rb') as f:
+        with open(name, mode='rb') as f:
             self.header = Header()
             self.path = os.path.realpath(name) 
             self._data = None
@@ -100,7 +100,7 @@ class SpeFile(object):
             return self._data
 
         # In python 2.7, apparently file and FileIO cannot be used interchangably
-        with file(self.path, mode='r') as f:
+        with open(self.path, mode='rb') as f:
             f.seek(4100) # Skip header (4100 bytes)
 
             _count = self.header.xdim * self.header.ydim * self.header.NumFrames
