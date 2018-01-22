@@ -2,13 +2,16 @@
 
 import ctypes, os
 import numpy as np
+import logging
 
-__all__ = ['SpeFile', 'test_headers']
+__all__ = ['SpeFile', 'print_offsets']
 
 __author__ = "Anton Loukianov"
 __email__ = "anton.loukianov@gmail.com"
 __license__ = "BSD"
-__version__ = "0.1"
+__version__ = "0.2"
+
+log = logging.getLogger('winspec')
 
 # Definitions of types
 spe_byte = ctypes.c_ubyte
@@ -33,7 +36,7 @@ class AxisCalibration(ctypes.Structure):
 class Header(ctypes.Structure):
     pass
 
-def test_headers():
+def print_offsets():
     ''' Print the attribute names, sizes and offsets in the C structure
     
     Assuming that the sizes are correct and add up to an offset of 4100 bytes, 
@@ -47,11 +50,11 @@ def test_headers():
     import inspect, re
 
     A = Header()
-    
+
     for i in [Header, AxisCalibration, ROIinfo]:
         fields = []
 
-        print '\n{:30s}[{:4s}]\tsize'.format(i, 'offs')
+        print('\n{:30s}[{:4s}]\tsize'.format(repr(i), 'offs'))
         
         for name,obj in inspect.getmembers(i):
             if inspect.isdatadescriptor(obj) and not inspect.ismemberdescriptor(obj) \
@@ -59,11 +62,11 @@ def test_headers():
                 
                 fields.append((name, obj))
 
-        fields.sort(key=lambda x: re.search('(?<=ofs=)([0-9]+)', str(x[1])).group(0), 
-                cmp=lambda x,y: cmp(int(x),int(y))); fields
+        fields = sorted(fields, key=lambda x: x[1].offset)
 
         for name, obj in fields:
-            print '{:30s}[{:4d}]\t{:4d}'.format(name, obj.size, obj.offset)
+            print('{:30s}[{:4d}]\t{:4d}'.format(name, obj.size, obj.offset))
+
 
 class SpeFile(object):
     ''' A file that represents the SPE file.
@@ -89,6 +92,26 @@ class SpeFile(object):
             # Deprecated method, but FileIO apparently can't be used with numpy
             f.readinto(self.header)
 
+        # set some useful properties
+        self.reversed = True if self.header.geometric == 2 else False
+        self.gain = self.header.gain
+
+        if self.header.ADCtype == 8:
+            self.adc = 'Low Noise'
+        elif self.header.ADCtype == 9:
+            self.adc = 'High Capacity'
+        else:
+            self.adc = 'Unknown'
+
+        if self.header.ADCrate == 12:
+            self.adc_rate = '2 MHz'
+        elif self.header.ADCrate == 6:
+            self.adc_rate = '100 KHz'
+        else:
+            self.adc_rate = 'Unknown'
+
+        self.readout_time = self.header.ReadoutTime
+
     def _read(self):
         ''' Read the data segment of the file and create an appropriately-shaped numpy array
 
@@ -97,6 +120,7 @@ class SpeFile(object):
         '''
 
         if self._data is not None:
+            log.debug('using cached data')
             return self._data
 
         # In python 2.7, apparently file and FileIO cannot be used interchangably
@@ -114,6 +138,14 @@ class SpeFile(object):
             # Orient the structure so that it is indexed like [NumFrames][x, y]
             self._data = np.rollaxis(self._data, 2, 1)
 
+            # flip data
+            if all([self.reversed == True, self.adc == '100 KHz']):
+                pass
+            elif any([self.reversed == True, self.adc == '100 KHz']):
+                self._data = self._data[:, ::-1, :]
+                log.debug('flipped data because of nonstandard ADC setting ' +\
+                        'or reversed setting')
+
             return self._data
 
     ''' Data recorded in the file, returned as a numpy array. 
@@ -123,9 +155,14 @@ class SpeFile(object):
     '''
     data = property(fget=_read)
 
+    def __str__(self):
+        return 'SPE File \n\t{:d}x{:d} area, {:d} frames\n\tTaken on {:s}' \
+                .format(self.header.xdim, self.header.ydim, 
+                        self.header.NumFrames, self.header.date.decode())
+
     def __repr__(self):
-        return 'SPE File {:s}\n\t{:d}x{:d} area, {:d} frames\n\tTaken on {:s}' \
-                .format(self.path, self.header.xdim, self.header.ydim, self.header.NumFrames, self.header.date)
+        return str(self)
+
 
 # Lengths of arrays used in header
 HDRNAMEMAX = 120
@@ -327,4 +364,3 @@ Header._fields_ = [
     ('AvGainUsed', spe_short),
     ('AvGain', spe_short),
     ('lastvalue', spe_short)]
-

@@ -1,22 +1,23 @@
-pyWinSpec
-=========
+# pyWinSpec
 
 This module is for reading SPE files created by WinSpec with Princeton Instruments' cameras. 
 It defines the structures used in the 2.6 versions of 
 [WinSpec](http://www.princetoninstruments.com/products/software/). The definitions were taken 
 from 2.6B version of the manual. 
 
-The `SpeFile` class takes an input path, stores header information and returns a numpy array 
-of the appropriate shape. 
+In principle, this package can also read the LightField data, as long as no
+additional metadata is written per-frame. The header field of these files does 
+not store any information however. Pull requests that add support of the 3.x file format are welcome
 
-Requirements
-============
+The `SpeFile` class takes an input path, stores header information and returns a numpy array 
+of the appropriate shape.
+
+# Requirements
 
 - Numpy
-- Python 2.7
+- Python 2.7 or 3.5+
 
-Usage
-=====
+# Usage
 
     >>> from winspec import SpeFile
     >>> SpeFile('baseline.SPE')
@@ -40,8 +41,15 @@ Usage
             [13703],
             [13665]]], dtype=uint16)
 
-License
-=======
+
+# Changelog
+
+- *0.2* - backport improvements from the analysis package, port to python 3.
+    *WARNING* When the ADC setting is set to '100 KHz,' the pixel data are now
+    reversed by winspec to undo the reversal done by the camera. 
+- *0.1* - first commit, working on python 2.7
+
+# License
 
 Copyright (c) 2013, Anton Loukianov 
 All rights reserved.
