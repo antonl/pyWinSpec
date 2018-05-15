@@ -44,6 +44,7 @@ of the appropriate shape.
 
 # Changelog
 
+- *0.2.1* - added wavelength axis field
 - *0.2* - backport improvements from the analysis package, port to python 3.
     *WARNING* When the ADC setting is set to '100 KHz,' the pixel data are now
     reversed by winspec to undo the reversal done by the camera. 
@@ -51,7 +52,7 @@ of the appropriate shape.
 
 # License
 
-Copyright (c) 2013, Anton Loukianov 
+Copyright (c) 2013-2018, Anton Loukianov
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

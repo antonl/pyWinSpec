@@ -1,6 +1,7 @@
 ''' winspec.py - read SPE files created by WinSpec with Princeton Instruments' cameras. '''
 
 import ctypes, os
+import struct
 import numpy as np
 import logging
 
@@ -9,7 +10,7 @@ __all__ = ['SpeFile', 'print_offsets']
 __author__ = "Anton Loukianov"
 __email__ = "anton.loukianov@gmail.com"
 __license__ = "BSD"
-__version__ = "0.2"
+__version__ = "0.2.1"
 
 log = logging.getLogger('winspec')
 
@@ -88,6 +89,8 @@ class SpeFile(object):
             self.header = Header()
             self.path = os.path.realpath(name) 
             self._data = None
+            self._xaxis = None
+            self._yaxis = None
 
             # Deprecated method, but FileIO apparently can't be used with numpy
             f.readinto(self.header)
@@ -147,6 +150,73 @@ class SpeFile(object):
                         'or reversed setting')
 
             return self._data
+
+    @property
+    def xaxis(self):
+        if self._xaxis is not None:
+            log.debug('using cached xaxis')
+            return self._xaxis
+
+        px, py = self._make_axes()
+
+        return px
+
+    @property
+    def yaxis(self):
+        if self._yaxis is not None:
+            log.debug('using cached yaxis')
+            return self._yaxis
+
+        px, py = self._make_axes()
+
+        return py
+
+    @property
+    def xaxis_label(self):
+        '''Read the x axis label
+        '''
+        return self.header.xcalibration.string.decode('ascii')
+
+    @property
+    def yaxis_label(self):
+        '''Read the y axis label
+        '''
+        return self.header.ycalibration.string.decode('ascii')
+
+
+    def _make_axes(self):
+        '''Construct axes from calibration fields in header file
+        '''
+        xcalib = self.header.xcalibration
+        ycalib = self.header.ycalibration
+
+        xcalib_valid = struct.unpack('?', xcalib.calib_valid)
+
+        if xcalib_valid:
+            xcalib_order, = struct.unpack('>B', xcalib.polynom_order) # polynomial order
+            px = xcalib.polynom_coeff[:xcalib_order+1]
+            px = np.array(px[::-1]) # reverse coefficients to use numpy polyval
+            pixels = np.arange(1, self.header.xdim + 1)
+            px = np.polyval(px, pixels)
+        else:
+            px = np.arange(1, self.header.xdim + 1)
+
+        ycalib_valid = struct.unpack('?', ycalib.calib_valid)
+
+        if ycalib_valid:
+            ycalib_order, = struct.unpack('>B', ycalib.polynom_order) # polynomial order
+            py = ycalib.polynom_coeff[:ycalib_order+1]
+            py = np.array(py[::-1]) # reverse coefficients to use numpy polyval
+            pixels = np.arange(1, self.header.ydim + 1)
+            py = np.polyval(py, pixels)
+        else:
+            py = np.arange(1, self.header.ydim + 1)
+
+        self._xaxis = px
+        self._yaxis = py
+
+        return px, py
+
 
     ''' Data recorded in the file, returned as a numpy array. 
     
